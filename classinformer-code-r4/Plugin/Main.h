@@ -5,6 +5,14 @@
 //
 // ****************************************************************************
 
+#define EA32FORMAT "%08X"
+#define EA32FORMAT2 "%X"
+#define EA64FORMAT "%016I64X"
+#define EA64FORMAT2 "%I64X"
+
+extern BOOL is64bit;
+inline uint8_t getPtrSize() { return is64bit ? 8 : 4; }
+
 extern void fixEa(ea_t ea);
 extern void fixDword(ea_t eaAddress);
 extern void fixFunction(ea_t eaFunc);
@@ -43,22 +51,18 @@ template <class T> BOOL getVerify32(ea_t eaPtr, T &rValue)
 // Get address/pointer value
 inline ea_t getEa(ea_t ea)
 {
-    #ifndef __EA64__
-    return((ea_t) get_32bit(ea));
-    #else
+    if (!is64bit)
+        return((ea_t) get_32bit(ea));
     return((ea_t) get_64bit(ea));
-    #endif
 }
 
 
 // Returns TRUE if ea_t sized value flags
 inline BOOL isEa(flags_t f)
 {
-    #ifndef __EA64__
-    return(is_dword(f));
-    #else
+    if (!is64bit)
+		return(is_dword(f));
     return(is_qword(f));
-    #endif
 }
 
 extern BOOL optionPlaceStructs;

@@ -22,30 +22,30 @@
     <ProjectName>PlugIn</ProjectName>
     <Keyword>Qt4VSv1.0</Keyword>
     <ProjectGuid>{DEADBEEF-CAFE-F00D-FEED-C0FFEEC0FFEE}</ProjectGuid>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug64|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release64|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
@@ -78,6 +78,8 @@
     <GenerateManifest>false</GenerateManifest>
     <TargetExt>.dlL</TargetExt>
     <TargetName>IDA_ClassInformer_PlugIn</TargetName>
+    <IncludePath>C:\Users\Administrator\Documents\5.15.2\qtbase\include;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_SegmentSelect;C:\Program Files\IDA Pro 8.2\idasdk_pro82\include;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\SupportLib;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_WaitEx;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_OggPlayer;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files\IDA Pro 8.2\idasdk_pro82\lib\x64_win_vc_32;C:\Program Files\IDA Pro 8.2\idasdk_pro82\lib\x64_win_qt;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_SegmentSelect;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_OggPlayer;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_WaitEx;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release64|x64'">
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
@@ -85,6 +87,8 @@
     <GenerateManifest>false</GenerateManifest>
     <TargetExt>.dlL</TargetExt>
     <TargetName>IDA_ClassInformer_PlugIn64</TargetName>
+    <IncludePath>C:\Users\Administrator\Documents\5.15.2\qtbase\include;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_SegmentSelect;C:\Program Files\IDA Pro 8.2\idasdk_pro82\include;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\SupportLib;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_WaitEx;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_OggPlayer;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files\IDA Pro 8.2\idasdk_pro82\lib\x64_win_vc_64;C:\Program Files\IDA Pro 8.2\idasdk_pro82\lib\x64_win_qt;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_SegmentSelect;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_OggPlayer;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_WaitEx;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
@@ -92,6 +96,8 @@
     <GenerateManifest>false</GenerateManifest>
     <TargetExt>.dlL</TargetExt>
     <TargetName>IDA_ClassInformer_PlugIn</TargetName>
+    <IncludePath>C:\Users\Administrator\Documents\5.15.2\qtbase\include;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_SegmentSelect;C:\Program Files\IDA Pro 8.2\idasdk_pro82\include;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\SupportLib;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_WaitEx;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_OggPlayer;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files\IDA Pro 8.2\idasdk_pro82\lib\x64_win_vc_64;C:\Program Files\IDA Pro 8.2\idasdk_pro82\lib\x64_win_qt;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_SegmentSelect;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_OggPlayer;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_WaitEx;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug64|x64'">
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
@@ -99,6 +105,8 @@
     <GenerateManifest>false</GenerateManifest>
     <TargetExt>.dlL</TargetExt>
     <TargetName>IDA_ClassInformer_PlugIn64</TargetName>
+    <IncludePath>C:\Users\Administrator\Documents\5.15.2\qtbase\include;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_SegmentSelect;C:\Program Files\IDA Pro 8.2\idasdk_pro82\include;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\SupportLib;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_WaitEx;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_OggPlayer;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files\IDA Pro 8.2\idasdk_pro82\lib\x64_win_vc_64;C:\Program Files\IDA Pro 8.2\idasdk_pro82\lib\x64_win_qt;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_SegmentSelect;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_OggPlayer;D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\IDA_WaitEx;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -451,7 +459,7 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\IDA_Support\SupportLib\Utility.cpp" />
+    <ClCompile Include="D:\Projects_\ida-support-library-code-r3\ ida-support-library-code\SupportLib\Utility.cpp" />
     <ClCompile Include="GeneratedFiles\Debug64\moc_MainDialog.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

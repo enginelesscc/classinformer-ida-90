@@ -18,7 +18,8 @@
 // IDA libs
 #define USE_DANGEROUS_FUNCTIONS
 #define USE_STANDARD_FILE_FUNCTIONS
-#define NO_OBSOLETE_FUNCS
+// #define NO_OBSOLETE_FUNCS
+#define __DEFINE_INF__
 // Nix the many warning about int type conversions
 #pragma warning(push)
 #pragma warning(disable:4244)
@@ -67,4 +68,4 @@ typedef std::unordered_map<ea_t, UINT> eaRefMap; // address & ref count
 //#define STYLE_PATH "C:/Projects/IDA Pro Work/IDA_ClassInformer_PlugIn/Plugin/"
 #define STYLE_PATH ":/classinf/"
 
-#define MY_VERSION MAKEWORD(5, 2) // Low, high, convention: 0 to 99
+#define MY_VERSION MAKEWORD(7, 2) // Low, high, convention: 0 to 99

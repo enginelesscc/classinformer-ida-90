@@ -6,8 +6,11 @@
 // ****************************************************************************
 #pragma once
 
+extern BOOL is64bit;
+
 namespace RTTI
 {
+
 	#pragma pack(push, 1)
 
 	// std::type_info class representation
@@ -16,13 +19,16 @@ namespace RTTI
 		ea_t vfptr;	       // type_info class vftable
         ea_t _M_data;      // NULL until loaded at runtime
 		char _M_d_name[1]; // Mangled name (prefix: .?AV=classes, .?AU=structs)
+        inline static auto offsetof_vfptr() { return 0; }
+        inline static auto offsetof__M_data() { return getPtrSize() ; }
+        inline static auto offsetof__M_d_name() { return getPtrSize() + getPtrSize(); }
 
         static BOOL isValid(ea_t typeInfo);
         static BOOL isTypeName(ea_t name);
         static int  getName(ea_t typeInfo, __out LPSTR bufffer, int bufferSize);
         static void tryStruct(ea_t typeInfo);
     };
-    const UINT MIN_TYPE_INFO_SIZE = (offsetof(type_info, _M_d_name) + sizeof(".?AVx"));
+    const UINT inline MIN_TYPE_INFO_SIZE() { return (type_info::offsetof__M_d_name() + sizeof(".?AVx")); }
     typedef type_info _TypeDescriptor;
     typedef type_info _RTTITypeDescriptor;
 
@@ -32,6 +38,9 @@ namespace RTTI
 		int mdisp;	// 00 Member displacement
 		int pdisp;  // 04 Vftable displacement
 		int vdisp;  // 08 Displacement inside vftable
+        inline static auto offsetof_mdisp() { return 0; }
+        inline static auto offsetof_pdisp() { return 4; }
+        inline static auto offsetof_vdisp() { return 4+4; }
 	};
 
     // Describes all base classes together with information to derived class access dynamically
@@ -46,14 +55,14 @@ namespace RTTI
 
     struct _RTTIBaseClassDescriptor
 	{
-        #ifndef __EA64__
-		ea_t typeDescriptor;        // 00 Type descriptor of the class
-        #else
         UINT typeDescriptor;        // 00 Type descriptor of the class  *X64 int32 offset
-        #endif
 		UINT numContainedBases;		// 04 Number of nested classes following in the Base Class Array
-		PMD  pmd;					// 08 Pointer-to-member displacement info
+        PMD pmd;					// 08 Pointer-to-member displacement info
 		UINT attributes;			// 14 Flags
+        inline static auto offsetof_typeDescriptor() { return 0; }
+        inline static auto offsetof_numContainedBases() { return 4; }
+        inline static auto offsetof_pmd() { return 4 + 4; }
+        inline static auto offsetof_attributes() { return 4 + 4 + sizeof(PMD); }
         // 18 When attributes & BCD_HASPCHD
         //_RTTIClassHierarchyDescriptor *classDescriptor; *X64 int32 offset
 
@@ -79,11 +88,11 @@ namespace RTTI
 		UINT signature;			// 00 Zero until loaded
 		UINT attributes;		// 04 Flags
 		UINT numBaseClasses;	// 08 Number of classes in the following 'baseClassArray'
-        #ifndef __EA64__
-        ea_t baseClassArray;    // 0C _RTTIBaseClassArray*
-        #else
         UINT baseClassArray;    // 0C *X64 int32 offset to _RTTIBaseClassArray*
-        #endif
+        inline static auto offsetof_signature() { return 0; }
+        inline static auto offsetof_attributes() { return 4; }
+        inline static auto offsetof_numBaseClasses() { return 4+4; }
+        inline static auto offsetof_baseClassArray() { return 4+4+4; }
 
         static BOOL isValid(ea_t chd, ea_t colBase64 = NULL);
         static void tryStruct(ea_t chd, ea_t colBase64 = NULL);
@@ -95,19 +104,24 @@ namespace RTTI
 		UINT signature;				// 00 32bit zero, 64bit one, until loaded
 		UINT offset;				// 04 Offset of this vftable in the complete class
 		UINT cdOffset;				// 08 Constructor displacement offset
-        #ifndef __EA64__
-        ea_t typeDescriptor;	    // 0C (type_info *) of the complete class
-        ea_t classDescriptor;       // 10 (_RTTIClassHierarchyDescriptor *) Describes inheritance hierarchy
-        #else
-        UINT typeDescriptor;	    // 0C (type_info *) of the complete class  *X64 int32 offset
-        UINT classDescriptor;       // 10 (_RTTIClassHierarchyDescriptor *) Describes inheritance hierarchy  *X64 int32 offset
+        UINT typeDescriptor;	    // 0C (type_info *) of the complete class
+        UINT classDescriptor;       // 10 (_RTTIClassHierarchyDescriptor *) Describes inheritance hierarchy
         UINT objectBase;            // 14 Object base offset (base = ptr col - objectBase)
-        #endif
+        inline static auto offsetof_signature() { return 0; }
+        inline static auto offsetof_offset() { return 4; }
+        inline static auto offsetof_cdOffset() { return 4+4; }
+        inline static auto offsetof_typeDescriptor() { return 4+4+4; }
+        inline static auto offsetof_classDescriptor() { return 4+4+4+4; }
+        inline static auto offsetof_objectBase() { return 4+4+4+4+4; }
+
+        inline static auto structSize() { 
+            if (getPtrSize() == 4)
+                return offsetof_objectBase();
+            return offsetof_objectBase() + 4;
+        }
 
         static BOOL isValid(ea_t col);
-        #ifndef __EA64__
         static BOOL isValid2(ea_t col);
-        #endif
         static BOOL tryStruct(ea_t col);
 	};
 	#pragma pack(pop)

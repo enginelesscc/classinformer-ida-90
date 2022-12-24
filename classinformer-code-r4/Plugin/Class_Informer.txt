@@ -114,6 +114,8 @@ Disassembler"
 
 -- [History] --------------------------------------------
 
+2.7 - 1) Updated to Support IDA 8.2 x32 in x64
+
 2.6 - 1) Updated to IDA SDK 7.1
 
 2.5 - 1) Updated to IDA 7 and MSVC 2017.

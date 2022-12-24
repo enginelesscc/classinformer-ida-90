@@ -36,7 +36,9 @@ struct TBLENTRY
     WORD methods;
     WORD flags;
     WORD strSize;
-    char str[MAXSPECSIZE - (sizeof(ea_t) + (sizeof(WORD) * 3))]; // Note: IDA MAXSTR = 1024
+    char str[MAXSPECSIZE - (sizeof(ea_t) + (sizeof(WORD) * 3))]{}; // Note: IDA MAXSTR = 1024
+
+    inline static auto offsetof_str() { return 4 + 2 + 2 + 2; }
 };
 #pragma pack(pop)
 
@@ -65,7 +67,7 @@ static eaList colList;
 BOOL optionPlaceStructs	 = TRUE;
 BOOL optionProcessStatic = TRUE;
 BOOL optionAudioOnDone   = TRUE;
-
+BOOL is64bit = FALSE;
 
 static void freeWorkingData()
 {
@@ -84,11 +86,12 @@ static void freeWorkingData()
 }
 
 // Initialize
-int idaapi init()
+plugmod_t* idaapi init()
 {
 	// Want the table entry structure to fit the max netnode size
 	CASSERT(sizeof(TBLENTRY) == 1024);
 
+    ::is64bit = inf_is_64bit();
 	if (strcmp(inf.procname, "metapc") == 0) // (ph.id == PLFM_386)
 	{
 		GetModuleHandleEx((GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS), (LPCTSTR)&init, &myModuleHandle);
@@ -139,7 +142,7 @@ static WORD getStoreVersion(){ return((WORD)netNode->altval_idx8(NIDX_VERSION, N
 static UINT getTableCount(){ return(netNode->altval_idx8(NIDX_COUNT, NN_DATA_TAG)); }
 static BOOL setTableCount(UINT count){ return(netNode->altset_idx8(NIDX_COUNT, count, NN_DATA_TAG)); }
 static BOOL getTableEntry(TBLENTRY &entry, UINT index){ return(netNode->supval(index, &entry, sizeof(TBLENTRY), NN_TABLE_TAG) > 0); }
-static BOOL setTableEntry(TBLENTRY &entry, UINT index){ return(netNode->supset(index, &entry, (offsetof(TBLENTRY, str) + entry.strSize), NN_TABLE_TAG)); }
+static BOOL setTableEntry(TBLENTRY &entry, UINT index){ return(netNode->supset(index, &entry, (TBLENTRY::offsetof_str() + entry.strSize), NN_TABLE_TAG)); }
 
 // Add an entry to the vftable list
 void addTableEntry(UINT flags, ea_t vft, int methodCount, LPCTSTR format, ...)
@@ -151,9 +154,9 @@ void addTableEntry(UINT flags, ea_t vft, int methodCount, LPCTSTR format, ...)
 
 	va_list vl;
 	va_start(vl, format);
-	vsnprintf_s(e.str, sizeof(e.str), SIZESTR(e.str), format, vl);
+	auto written = vsnprintf_s(e.str, sizeof(e.str), SIZESTR(e.str), format, vl);
 	va_end(vl);
-	e.strSize = (WORD) (strlen(e.str) + 1);
+	e.strSize += written;
 
 	UINT count = getTableCount();
 	setTableEntry(e, count);
@@ -180,23 +183,21 @@ class rtti_chooser : public chooser_multi_t
 public:
 	rtti_chooser() : chooser_multi_t(CH_QFTYP_DEFAULT, LBCOLUMNCOUNT, LBWIDTHS, LBHEADER, LBTITLE)
 	{
-		#ifdef __EA64__
-		// Setup hex address display to the minimal size needed plus a leading zero
-		UINT count = getTableCount();
-		ea_t largestAddres = 0;
-		for (UINT i = 0; i < count; i++)
-		{
-			TBLENTRY e; e.vft = 0;
-			getTableEntry(e, i);
-			if (e.vft > largestAddres)
-				largestAddres = e.vft;
-		}
+        // Setup hex address display to the minimal size needed plus a leading zero
+        UINT count = getTableCount();
+        ea_t largestAddres = 0;
+        for (UINT i = 0; i < count; i++)
+        {
+            TBLENTRY e; e.vft = 0;
+            getTableEntry(e, i);
+            if (e.vft > largestAddres)
+                largestAddres = e.vft;
+        }
 
-		char buffer[32];
-		int digits = (int) strlen(_ui64toa(largestAddres, buffer, 16));
-		if (++digits > 16) digits = 16;
-		sprintf_s(addressFormat, sizeof(buffer), "%%0%uI64X", digits);
-		#endif
+        char buffer[32];
+        int digits = (int)strlen(_ui64toa(largestAddres, buffer, 16));
+        if (++digits > 16) digits = 16;
+        sprintf_s(addressFormat, sizeof(addressFormat), "%%0%uI64X", digits);
 
 		// Chooser icon
 		icon = chooserIcon;
@@ -212,68 +213,66 @@ public:
 
 	virtual void get_row(qstrvec_t *cols_, int *icon_, chooser_item_attrs_t *attributes, size_t n) const
 	{
-		try
-		{
-			if (netNode)
-			{
-				// Generate the line
-				TBLENTRY e;
-				getTableEntry(e, (UINT)n);
+        try
+        {
+            if (netNode)
+            {
+                // Generate the line
+                TBLENTRY e;
+                getTableEntry(e, (UINT)n);
 
-				// vft address
-				qstrvec_t &cols = *cols_;
-				#ifdef __EA64__
-				cols[0].sprnt(addressFormat, e.vft);
-				#else
-				cols[0].sprnt(EAFORMAT, e.vft);
-				#endif
+                // vft address
+                qstrvec_t& cols = *cols_;
+                cols[0].sprnt(addressFormat, e.vft);
 
-				// Method count
-				if (e.methods > 0)
-					cols[1].sprnt("%u", e.methods); // "%04u"
-				else
-					cols[1].sprnt("???");
+                // Method count
+                if (e.methods > 0)
+                    cols[1].sprnt("%u", e.methods); // "%04u"
+                else
+                    cols[1].sprnt("???");
 
-				// Flags
-				char flags[4];
-				int pos = 0;
-				if (e.flags & RTTI::CHD_MULTINH)   flags[pos++] = 'M';
-				if (e.flags & RTTI::CHD_VIRTINH)   flags[pos++] = 'V';
-				if (e.flags & RTTI::CHD_AMBIGUOUS) flags[pos++] = 'A';
-				flags[pos++] = 0;
-				cols[2] = flags;
+                // Flags
+                char flags[4];
+                int pos = 0;
+                if (e.flags & RTTI::CHD_MULTINH)   flags[pos++] = 'M';
+                if (e.flags & RTTI::CHD_VIRTINH)   flags[pos++] = 'V';
+                if (e.flags & RTTI::CHD_AMBIGUOUS) flags[pos++] = 'A';
+                flags[pos++] = 0;
+                cols[2] = flags;
 
-				// Type
-				LPCSTR tag = strchr(e.str, '@');
-				if (tag)
-				{
-					char buffer[MAXSTR];
-					int pos = (tag - e.str);
-					if (pos > SIZESTR(buffer)) pos = SIZESTR(buffer);
-					memcpy(buffer, e.str, pos);
-					buffer[pos] = 0;
-					cols[3] = buffer;
-					++tag;
-				}
-				else
-				{
-					// Can happen when string is MAXSTR and greater
-					cols[3] = "??** MAXSTR overflow!";
-					tag = e.str;
-				}
+                // Type
+                LPCSTR tag = strchr(e.str, '@');
+                if (tag)
+                {
+                    char buffer[MAXSTR]{};
+                    auto lastidx = SIZESTR(buffer);
+                    int pos = (tag - e.str);
+                    if (pos > lastidx)
+                        pos = lastidx;
+                    std::memcpy(buffer, e.str, pos);
+                    buffer[pos] = 0;
+                    cols[3] = qstring(buffer);
+                    ++tag;
+                }
+                else
+                {
+                    // Can happen when string is MAXSTR and greater
+                    cols[3] = "??** MAXSTR overflow!";
+                    tag = e.str;
+                }
 
-				// Composition/hierarchy
-				cols[4] = tag;
+                // Composition/hierarchy
+                cols[4] = qstring(tag);
 
-				//*icon_ = ((e.flags & RTTI::IS_TOP_LEVEL) ? 77 : 191);
-				*icon_ = 191;
+                //*icon_ = ((e.flags & RTTI::IS_TOP_LEVEL) ? 77 : 191);
+                *icon_ = 191;
 
-				// Indicate entry is not a top/parent level by color
-				if (!(e.flags & RTTI::IS_TOP_LEVEL))
-					attributes->color = NOT_PARENT_COLOR;
-			}
-		}
-		CATCH()
+                // Indicate entry is not a top/parent level by color
+                if (!(e.flags & RTTI::IS_TOP_LEVEL))
+                    attributes->color = NOT_PARENT_COLOR;
+            }
+        }
+        CATCH()
 	}
 
 	virtual cbres_t enter(sizevec_t *sel)
@@ -294,10 +293,7 @@ public:
 	}
 
 private:
-	#ifdef __EA64__
-	char addressFormat[16];
-	#endif
-
+    char addressFormat[16]{};
 };
 
 // find_widget
@@ -355,8 +351,12 @@ bool idaapi run(size_t arg)
     try
     {
         char version[16];
-        sprintf_s(version, sizeof(version), "%u.%u", HIBYTE(MY_VERSION), LOBYTE(MY_VERSION));
-        msg("\n>> Class Informer: v: %s, built: %s, By Sirmabus\n", version, __DATE__);
+        sprintf_s(version, sizeof(version), "%u.%u", HIBYTE(MY_VERSION), LOBYTE(MY_VERSION)); 
+        if (!is64bit)
+            msg("\n>> Class Informer x32: v: %s, built: %s, By Sirmabus, VivyaCC\n", version, __DATE__);
+        else
+            msg("\n>> Class Informer x64: v: %s, built: %s, By Sirmabus, VivyaCC\n", version, __DATE__);
+
 
 		if (netNode)
 		{
@@ -475,16 +475,12 @@ bool idaapi run(size_t arg)
                     // Optionally play completion sound
                     if (optionAudioOnDone)
                     {
-                        TIMESTAMP endTime = (getTimeStamp() - s_startTime);
-                        if (endTime > (TIMESTAMP) 2.4)
+                        OggPlay::endPlay();
+                        QFile file(STYLE_PATH "completed.ogg");
+                        if (file.open(QFile::ReadOnly))
                         {
-                            OggPlay::endPlay();
-                            QFile file(STYLE_PATH "completed.ogg");
-                            if (file.open(QFile::ReadOnly))
-                            {
-                                QByteArray ba = file.readAll();
-                                OggPlay::playFromMemory((const PVOID)ba.constData(), ba.size(), TRUE);
-                            }
+                            QByteArray ba = file.readAll();
+                            OggPlay::playFromMemory((const PVOID)ba.constData(), ba.size(), TRUE);
                         }
                     }
 
@@ -552,7 +548,7 @@ static void setIntializerTable(ea_t start, ea_t end, BOOL isCpp)
 {
     try
     {
-        if (UINT count = ((end - start) / sizeof(ea_t)))
+        if (UINT count = ((end - start) / getPtrSize()))
         {
             // Set table elements as pointers
             ea_t ea = start;
@@ -564,7 +560,7 @@ static void setIntializerTable(ea_t start, ea_t end, BOOL isCpp)
                 if (ea_t func = get_32bit(ea))
                     fixFunction(func);
 
-                ea += sizeof(ea_t);
+                ea += getPtrSize();
             };
 
             // Start label
@@ -630,7 +626,7 @@ static void setTerminatorTable(ea_t start, ea_t end)
 {
     try
     {
-        if (UINT count = ((end - start) / sizeof(ea_t)))
+        if (UINT count = ((end - start) / getPtrSize()))
         {
             // Set table elements as pointers
             ea_t ea = start;
@@ -642,7 +638,7 @@ static void setTerminatorTable(ea_t start, ea_t end)
                 if (ea_t func = getEa(ea))
                     fixFunction(func);
 
-                ea += sizeof(ea_t);
+                ea += getPtrSize();
             };
 
             // Start label
@@ -685,7 +681,7 @@ static void setCtorDtorTable(ea_t start, ea_t end)
 {
     try
     {
-        if (UINT count = ((end - start) / sizeof(ea_t)))
+        if (UINT count = ((end - start) / getPtrSize()))
         {
             // Set table elements as pointers
             ea_t ea = start;
@@ -697,7 +693,7 @@ static void setCtorDtorTable(ea_t start, ea_t end)
                 if (ea_t func = getEa(ea))
                     fixFunction(func);
 
-                ea += sizeof(ea_t);
+                ea += getPtrSize();
             };
 
             // Start label
@@ -853,31 +849,44 @@ static BOOL processInitterm(ea_t address, LPCTSTR name)
                 {
                     LPCSTR pattern;
                     UINT start, end, padding;
-                } static const ALIGN(16) arg2pat[] =
-                {
-                    #ifndef __EA64__
-                    { "68 ?? ?? ?? ?? 68", 6, 1 },          // push offset s, push offset e
-                    { "B8 ?? ?? ?? ?? C7 04 24", 8, 1 },    // mov [esp+4+var_4], offset s, mov eax, offset e   Maestia
-                    { "68 ?? ?? ?? ?? B8", 6, 1 },          // mov eax, offset s, push offset e
-                    #else
-                    { "48 8D 15 ?? ?? ?? ?? 48 8D 0D", 3, 3 },  // lea rdx,s, lea rcx,e
-                    #endif
                 };
+                
+                std::vector<ARG2PAT> arg2pat;
+                if (is64bit) {
+                    arg2pat =
+                    {
+                        { "48 8D 15 ?? ?? ?? ?? 48 8D 0D", 3, 3 },  // lea rdx,s, lea rcx,e
+                    };
+                }
+                else {
+
+                    arg2pat =
+                    {
+                        { "68 ?? ?? ?? ?? 68", 6, 1 },          // push offset s, push offset e
+                        { "B8 ?? ?? ?? ?? C7 04 24", 8, 1 },    // mov [esp+4+var_4], offset s, mov eax, offset e   Maestia
+                        { "68 ?? ?? ?? ?? B8", 6, 1 },          // mov eax, offset s, push offset e
+                    };
+                }
+
                 BOOL matched = FALSE;
-                for (UINT i = 0; (i < qnumber(arg2pat)) && !matched; i++)
+                for (UINT i = 0; (i < arg2pat.size()) && !matched; i++)
                 {
 					ea_t match = FIND_BINARY(instruction2, xref, arg2pat[i].pattern);
 					if (match != BADADDR)
 					{
-						#ifndef __EA64__
-						ea_t start = getEa(match + arg2pat[i].start);
-						ea_t end   = getEa(match + arg2pat[i].end);
-						#else
-						UINT startOffset = get_32bit(instruction1 + arg2pat[i].start);
-						UINT endOffset   = get_32bit(instruction2 + arg2pat[i].end);
-						ea_t start = (instruction1 + 7 + *((PINT) &startOffset)); // TODO: 7 is hard coded instruction length, put this in arg2pat table?
-						ea_t end   = (instruction2 + 7 + *((PINT) &endOffset));
-						#endif
+                        ea_t start;
+                        ea_t end;
+                        if (!is64bit) {
+                            start = getEa(match + arg2pat[i].start);
+                            end = getEa(match + arg2pat[i].end);
+                        }
+                        else {
+                            UINT startOffset = get_32bit(instruction1 + arg2pat[i].start);
+                            UINT endOffset = get_32bit(instruction2 + arg2pat[i].end);
+                            start = (instruction1 + 7 + *((PINT)&startOffset)); // TODO: 7 is hard coded instruction length, put this in arg2pat table?
+                            end = (instruction2 + 7 + *((PINT)&endOffset));
+                        }
+
 						msg("  " EAFORMAT " Two instruction pattern match #%d\n", match, i);
 						count += doInittermTable(func, start, end, name);
 						matched = TRUE;
@@ -1078,18 +1087,18 @@ void fixDword(ea_t ea)
 // Force memory location to be ea_t size
 void fixEa(ea_t ea)
 {
-    #ifndef __EA64__
-    if (!is_dword(get_flags(ea)))
-    #else
-    if (!is_qword(get_flags(ea)))
-    #endif
+    if (!is64bit) 
     {
-        setUnknown(ea, sizeof(ea_t));
-        #ifndef __EA64__
-        create_dword(ea, sizeof(ea_t));
-        #else
-		create_qword(ea, sizeof(ea_t));
-        #endif
+        if (!is_dword(get_flags(ea)))
+        {
+            setUnknown(ea, getPtrSize());
+            create_dword(ea, getPtrSize());
+        }
+    }
+    else if (!is_qword(get_flags(ea))) 
+    {
+        setUnknown(ea, getPtrSize());
+        create_qword(ea, getPtrSize());
     }
 }
 
@@ -1264,68 +1273,71 @@ static BOOL scanSeg4Cols(segment_t *seg)
     msg(" N: \"%s\", A: " EAFORMAT " - " EAFORMAT ", S: %s.\n", name.c_str(), seg->start_ea, seg->end_ea, byteSizeString(seg->size()));
 
     UINT found = 0;
-    if (seg->size() >= sizeof(RTTI::_RTTICompleteObjectLocator))
+    if (seg->size() >= RTTI::_RTTICompleteObjectLocator::structSize())
     {
         ea_t startEA = ((seg->start_ea + sizeof(UINT)) & ~((ea_t) (sizeof(UINT) - 1)));
-        ea_t endEA   = (seg->end_ea - sizeof(RTTI::_RTTICompleteObjectLocator));
+        ea_t endEA   = (seg->end_ea - RTTI::_RTTICompleteObjectLocator::structSize());
 
         for (ea_t ptr = startEA; ptr < endEA;)
         {
-            #ifdef __EA64__
-            // Check for possible COL here
-            // Signature will be one
-            // TODO: Is this always 1 or can it be zero like 32bit?
-            if (get_32bit(ptr + offsetof(RTTI::_RTTICompleteObjectLocator, signature)) == 1)
-            {
-                if (RTTI::_RTTICompleteObjectLocator::isValid(ptr))
-                {
-                    // yes
-                    colList.push_front(ptr);
-					missingColsFixed += (UINT) RTTI::_RTTICompleteObjectLocator::tryStruct(ptr);
-                    ptr += sizeof(RTTI::_RTTICompleteObjectLocator);
-                    continue;
-                }
-            }
-            else
-            {
-                // TODO: Should we check stray BCDs?
-                // Each value would have to be tested for a valid type_def and
-                // the pattern is pretty ambiguous.
-            }
-            #else
-            // TypeDescriptor address here?
-            ea_t ea = getEa(ptr);
-            if (ea >= 0x10000)
-            {
-                if (RTTI::type_info::isValid(ea))
-                {
-                    // yes, a COL here?
-                    ea_t col = (ptr - offsetof(RTTI::_RTTICompleteObjectLocator, typeDescriptor));
-                    if (RTTI::_RTTICompleteObjectLocator::isValid2(col))
-                    {
-                        // yes
-                        colList.push_front(col);
-						missingColsFixed += (UINT) RTTI::_RTTICompleteObjectLocator::tryStruct(col);
-                        ptr += sizeof(RTTI::_RTTICompleteObjectLocator);
-                        continue;
-                    }
-                    /*
-                    else
-                    // No, is it a BCD then?
-                    if (RTTI::_RTTIBaseClassDescriptor::isValid2(ptr))
-                    {
-                        // yes
-                        char dontCare[MAXSTR];
-                        RTTI::_RTTIBaseClassDescriptor::doStruct(ptr, dontCare);
-                    }
-                    */
-                }
-            }
-            #endif
-
             if (WaitBox::isUpdateTime())
                 if (WaitBox::updateAndCancelCheck())
                     return(TRUE);
+
+            if (is64bit) 
+            {
+                // Check for possible COL here
+                // Signature will be one
+                // TODO: Is this always 1 or can it be zero like 32bit?
+                if (get_32bit(ptr + RTTI::_RTTICompleteObjectLocator::offsetof_signature()) == 1)
+                {
+                    if (RTTI::_RTTICompleteObjectLocator::isValid(ptr))
+                    {
+                        // yes
+                        colList.push_front(ptr);
+                        missingColsFixed += (UINT)RTTI::_RTTICompleteObjectLocator::tryStruct(ptr);
+                        ptr += RTTI::_RTTICompleteObjectLocator::structSize();
+                        continue;
+                    }
+                }
+                else
+                {
+                    // TODO: Should we check stray BCDs?
+                    // Each value would have to be tested for a valid type_def and
+                    // the pattern is pretty ambiguous.
+                }
+            }
+            else 
+            {
+                // TypeDescriptor address here?
+                ea_t ea = getEa(ptr);
+                if (ea >= 0x10000 && ea != BADADDR)
+                {
+                    if (RTTI::type_info::isValid(ea))
+                    {
+                        // yes, a COL here?
+                        ea_t col = (ptr - RTTI::_RTTICompleteObjectLocator::offsetof_typeDescriptor());
+                        if (RTTI::_RTTICompleteObjectLocator::isValid2(col))
+                        {
+                            // yes
+                            colList.push_front(col);
+                            missingColsFixed += (UINT)RTTI::_RTTICompleteObjectLocator::tryStruct(col);
+                            ptr += RTTI::_RTTICompleteObjectLocator::structSize();
+                            continue;
+                        }
+                        /*
+                        else
+                        // No, is it a BCD then?
+                        if (RTTI::_RTTIBaseClassDescriptor::isValid2(ptr))
+                        {
+                            // yes
+                            char dontCare[MAXSTR];
+                            RTTI::_RTTIBaseClassDescriptor::doStruct(ptr, dontCare);
+                        }
+                        */
+                    }
+                }
+            }
 
             ptr += sizeof(UINT);
         }
@@ -1390,10 +1402,10 @@ static BOOL scanSeg4Vftables(segment_t *seg, eaRefMap &colMap)
 	msg(" N: \"%s\", A: " EAFORMAT " - " EAFORMAT ", S: %s.\n", name.c_str(), seg->start_ea, seg->end_ea, byteSizeString(seg->size()));
 
     UINT foundCount = 0;
-    if (seg->size() >= sizeof(ea_t))
+    if (seg->size() >= getPtrSize())
     {
-        ea_t startEA = ((seg->start_ea + sizeof(ea_t)) & ~((ea_t) (sizeof(ea_t) - 1)));
-        ea_t endEA   = (seg->end_ea - sizeof(ea_t));
+        ea_t startEA = ((seg->start_ea + getPtrSize()) & ~((ea_t) (getPtrSize() - 1)));
+        ea_t endEA   = (seg->end_ea - getPtrSize());
 		_ASSERT(((startEA | endEA) & 3) == 0);
         eaRefMap::iterator colEnd = colMap.end();
 
@@ -1406,7 +1418,7 @@ static BOOL scanSeg4Vftables(segment_t *seg, eaRefMap &colMap)
             if (it != colEnd)
             {
                 // yes, look for vftable one ea_t below
-                ea_t vfptr  = (ptr + sizeof(ea_t));
+                ea_t vfptr  = (ptr + getPtrSize());
                 ea_t method = getEa(vfptr);
 
                 // Points to code?
