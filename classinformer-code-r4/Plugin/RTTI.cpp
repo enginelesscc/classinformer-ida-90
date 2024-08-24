@@ -187,13 +187,21 @@ void RTTI::addDefinitionsToIda()
 	rchdUdt.push_back(createStrucMember("attributes", RTTI::_RTTIClassHierarchyDescriptor::offsetof_attributes(), 4));
 	rchdUdt.push_back(createStrucMember("numBaseClasses", RTTI::_RTTIClassHierarchyDescriptor::offsetof_numBaseClasses(), 4));
 	rchdUdt.push_back(createStrucMember("baseClassArray", RTTI::_RTTIClassHierarchyDescriptor::offsetof_baseClassArray(), getPtrSize()));
-	addStruct(s_ClassHierarchyDescriptor_ID, rchdUdt, "_RTTIClassHierarchyDescriptor", "RTTI Class Hierarchy Descriptor (#classinformer)");
+	auto rchdPtr = addStruct(s_ClassHierarchyDescriptor_ID, rchdUdt, "_RTTIClassHierarchyDescriptor", "RTTI Class Hierarchy Descriptor (#classinformer)");
 
 	udt_type_data_t bcdUdt;
 	bcdUdt.push_back(createStrucMember("typeDescriptor", RTTI::_RTTIBaseClassDescriptor::offsetof_typeDescriptor(), getPtrSize()));
 	bcdUdt.push_back(createStrucMember("numContainedBases", RTTI::_RTTIBaseClassDescriptor::offsetof_numContainedBases(), 4));
 	bcdUdt.push_back(createStrucMember("pmd", RTTI::_RTTIBaseClassDescriptor::offsetof_pmd(), pmdPtr->get_size(), pmdPtr.get()));
 	bcdUdt.push_back(createStrucMember("attributes", RTTI::_RTTIBaseClassDescriptor::offsetof_attributes(), 4));
+	if (is64bit)
+	{
+		tinfo_t dsc;
+		ptr_type_data_t pt;
+		pt.obj_type = *rchdPtr;
+		dsc.create_ptr(pt);
+		bcdUdt.push_back(createStrucMember("classDescriptor", RTTI::_RTTIBaseClassDescriptor::offsetof_desc(), getPtrSize(), &dsc));
+	}
 	addStruct(s_BaseClassDescriptor_ID, bcdUdt, "_RTTIBaseClassDescriptor", "RTTI Base Class Descriptor (#classinformer)");
 
 	udt_type_data_t colUdt;
@@ -201,9 +209,15 @@ void RTTI::addDefinitionsToIda()
 	colUdt.push_back(createStrucMember("offset", RTTI::_RTTICompleteObjectLocator::offsetof_offset(), 4));
 	colUdt.push_back(createStrucMember("cdOffset", RTTI::_RTTICompleteObjectLocator::offsetof_cdOffset(), 4));
 	colUdt.push_back(createStrucMember("typeDescriptor", RTTI::_RTTICompleteObjectLocator::offsetof_typeDescriptor(), 4));
-	colUdt.push_back(createStrucMember("classDescriptor", RTTI::_RTTICompleteObjectLocator::offsetof_classDescriptor(), 4));
+	{
+		tinfo_t dsc;
+		ptr_type_data_t pt;
+		pt.obj_type = *rchdPtr;
+		dsc.create_ptr(pt);
+		colUdt.push_back(createStrucMember("classDescriptor", RTTI::_RTTICompleteObjectLocator::offsetof_classDescriptor(), getPtrSize(), &dsc));
+	};
 	if (is64bit)
-		colUdt.push_back(createStrucMember("objectBase", RTTI::_RTTICompleteObjectLocator::offsetof_objectBase(), 4));
+		colUdt.push_back(createStrucMember("objectBase", RTTI::_RTTICompleteObjectLocator::offsetof_objectBase(), getPtrSize()));
 	addStruct(s_CompleteObjectLocator_ID, colUdt, "_RTTICompleteObjectLocator", "RTTI Complete Object Locator (#classinformer)");
 }
 

@@ -63,6 +63,7 @@ namespace RTTI
         inline static auto offsetof_numContainedBases() { return 4; }
         inline static auto offsetof_pmd() { return 4 + 4; }
         inline static auto offsetof_attributes() { return 4 + 4 + sizeof(PMD); }
+        inline static auto offsetof_desc() { return 4 + 4 + sizeof(PMD) + 4; }
         // 18 When attributes & BCD_HASPCHD
         //_RTTIClassHierarchyDescriptor *classDescriptor; *X64 int32 offset
 
