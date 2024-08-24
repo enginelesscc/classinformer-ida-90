@@ -29,7 +29,6 @@
 #include <loader.hpp>
 #include <search.hpp>
 #include <typeinf.hpp>
-#include <struct.hpp>
 #include <nalt.hpp>
 #include <demangle.hpp>
 #pragma warning(pop)
@@ -55,7 +54,6 @@
 # error QT_NO_UNICODE_LITERAL must be defined to avoid Qt string crashes
 #endif
 
-#include <Utility.h>
 #include "undname.h"
 
 #include <unordered_set>
@@ -68,4 +66,4 @@ typedef std::unordered_map<ea_t, UINT> eaRefMap; // address & ref count
 //#define STYLE_PATH "C:/Projects/IDA Pro Work/IDA_ClassInformer_PlugIn/Plugin/"
 #define STYLE_PATH ":/classinf/"
 
-#define MY_VERSION MAKEWORD(7, 2) // Low, high, convention: 0 to 99
+#define MY_VERSION MAKEWORD(3, 9) // Low, high, convention: 0 to 99
