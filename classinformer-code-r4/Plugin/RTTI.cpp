@@ -8,6 +8,7 @@
 #include "Main.h"
 #include "RTTI.h"
 #include "Vftable.h"
+#include <Utility.h>
 
 // const Name::`vftable'
 static LPCSTR FORMAT_RTTI_VFTABLE = "??_7%s6B@";
@@ -132,132 +133,78 @@ static tid_t s_BaseClassDescriptor_ID = 4;
 static tid_t s_CompleteObjectLocator_ID = 5;
 
 // Create structure definition w/comment
-static struc_t* addStruct(__out tid_t& id, __in LPCSTR name, LPCSTR comment)
+static std::unique_ptr<tinfo_t> addStruct(__out tid_t& id, udt_type_data_t& udt, __in LPCSTR name, LPCSTR comment)
 {
-	struc_t* structPtr = NULL;
+	id = 0;
 
 	// If it exists get current def else create it
-	id = get_struc_id(name);
+	id = get_named_type_tid(name);
 	if (id == BADADDR)
-		id = add_struc(BADADDR, name);
-	if (id != BADADDR)
-		structPtr = get_struc(id);
-
-	if (structPtr)
 	{
-		// Clear the old one out if it exists and set the comment
-		int dd = del_struc_members(structPtr, 0, MAXADDR);
-		dd = dd; // for debugging
-		bool rr = set_struc_cmt(id, comment, true);
-		rr = rr;
+		tinfo_t tif;
+		if (tif.create_udt(udt, BTF_STRUCT) && !tif.set_named_type(nullptr, name, NTF_REPLACE))
+		{
+			id = tif.force_tid();
+		}
 	}
-	else
-		msg("** addStruct(\"%s\") failed!\n", name);
 
-	return(structPtr);
+	if (id != BADADDR)
+	{
+		id = get_named_type_tid(name);
+	}
+
+	auto tif = std::make_unique<tinfo_t>();
+	if (!get_type_by_tid(tif.get(), id))
+	{
+		msg("** get_named_type_tid(\"%s\") failed!\n", name);
+		return nullptr;
+	}
+
+	tif->set_type_cmt(comment);
+	return tif;
 }
 
 void RTTI::addDefinitionsToIda()
 {
-	// Member type info for 32bit offset types
-	opinfo_t mtoff;
-	ZeroMemory(&mtoff, sizeof(refinfo_t));
-	auto EAOFFSET = []() {
-		if (!is64bit)
-			return (off_flag() | dword_flag());
-		return (off_flag() | qword_flag());
-	}();
-	if (!is64bit) {
-		mtoff.ri.flags = REF_OFF32;
-	}
-	else {
-		mtoff.ri.flags = REF_OFF64;
-	}
-	mtoff.ri.target = BADADDR;
-	struc_t* structPtr;
+	udt_type_data_t udt;
+	udt.push_back(createStrucMember("vfptr", RTTI::type_info::offsetof_vfptr(), getPtrSize()));
+	udt.push_back(createStrucMember("_M_data", RTTI::type_info::offsetof__M_data(), 4));
+	tinfo_t arr;
+	array_type_data_t arrt;
+	arrt.elem_type.create_simple_type(BTF_CHAR);
+	arr.create_array(arrt);
+	udt.push_back(createStrucMember("_M_d_name", RTTI::type_info::offsetof__M_d_name(), 0, &arr));
+	addStruct(s_type_info_ID, udt, "type_info", "RTTI std::type_info class (#classinformer)");
 
-	// Add structure member
-#define ADD_MEMBER2(_flags, _mtoff, TYPE, _member) \
-    { \
-	    TYPE _type; \
-        (void)_type; \
-	    if(add_struc_member(structPtr, #_member, (ea_t )TYPE::offsetof_##_member(), (_flags), _mtoff, (asize_t) sizeof(_type._member)) != 0) \
-		    msg(" ** ADD_MEMBER2(): %s failed! %d, %d **\n", #_member, TYPE::offsetof_##_member(), sizeof(_type._member)); \
-    }
+	udt_type_data_t pmdUdt;
+	pmdUdt.push_back(createStrucMember("mdisp", RTTI::PMD::offsetof_mdisp(), 4));
+	pmdUdt.push_back(createStrucMember("pdisp", RTTI::PMD::offsetof_pdisp(), 4));
+	pmdUdt.push_back(createStrucMember("vdisp", RTTI::PMD::offsetof_vdisp(), 4));
+	auto pmdPtr = addStruct(s_PMD_ID, pmdUdt, "_PMD", "RTTI Base class descriptor displacement container (#classinformer)");
 
-	// IDA 7 has a definition for this now
-	s_type_info_ID = get_struc_id("TypeDescriptor");
-	if (s_type_info_ID == BADADDR)
-	{
-		msg("** Failed to load the IDA TypeDescriptor type, generating one **\n");
+	udt_type_data_t rchdUdt;
+	rchdUdt.push_back(createStrucMember("signature", RTTI::_RTTIClassHierarchyDescriptor::offsetof_signature(), 4));
+	rchdUdt.push_back(createStrucMember("attributes", RTTI::_RTTIClassHierarchyDescriptor::offsetof_attributes(), 4));
+	rchdUdt.push_back(createStrucMember("numBaseClasses", RTTI::_RTTIClassHierarchyDescriptor::offsetof_numBaseClasses(), 4));
+	rchdUdt.push_back(createStrucMember("baseClassArray", RTTI::_RTTIClassHierarchyDescriptor::offsetof_baseClassArray(), getPtrSize()));
+	addStruct(s_ClassHierarchyDescriptor_ID, rchdUdt, "_RTTIClassHierarchyDescriptor", "RTTI Class Hierarchy Descriptor (#classinformer)");
 
-		if (structPtr = addStruct(s_type_info_ID, "type_info", "RTTI std::type_info class (#classinformer)"))
-		{
-			ADD_MEMBER2(EAOFFSET, &mtoff, RTTI::type_info, vfptr);
-			ADD_MEMBER2(dword_flag(), NULL, RTTI::type_info, _M_data);
+	udt_type_data_t bcdUdt;
+	bcdUdt.push_back(createStrucMember("typeDescriptor", RTTI::_RTTIBaseClassDescriptor::offsetof_typeDescriptor(), getPtrSize()));
+	bcdUdt.push_back(createStrucMember("numContainedBases", RTTI::_RTTIBaseClassDescriptor::offsetof_numContainedBases(), 4));
+	bcdUdt.push_back(createStrucMember("pmd", RTTI::_RTTIBaseClassDescriptor::offsetof_pmd(), pmdPtr->get_size(), pmdPtr.get()));
+	bcdUdt.push_back(createStrucMember("attributes", RTTI::_RTTIBaseClassDescriptor::offsetof_attributes(), 4));
+	addStruct(s_BaseClassDescriptor_ID, bcdUdt, "_RTTIBaseClassDescriptor", "RTTI Base Class Descriptor (#classinformer)");
 
-			// Name string zero size
-			opinfo_t mt;
-			ZeroMemory(&mt, sizeof(refinfo_t));
-			if (addStrucMember(structPtr, "_M_d_name", RTTI::type_info::offsetof__M_d_name(), strlit_flag(), &mt, 0) != 0)
-				msg("** addDefinitionsToIda():  _M_d_name failed! \n");
-		}
-	}
-
-	// Must come before the following  "_RTTIBaseClassDescriptor"
-	if (structPtr = addStruct(s_PMD_ID, "_PMD", "RTTI Base class descriptor displacement container (#classinformer)"))
-	{
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::PMD, mdisp);
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::PMD, pdisp);
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::PMD, vdisp);
-	}
-
-	if (structPtr = addStruct(s_ClassHierarchyDescriptor_ID, "_RTTIClassHierarchyDescriptor", "RTTI Class Hierarchy Descriptor (#classinformer)"))
-	{
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTIClassHierarchyDescriptor, signature);
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTIClassHierarchyDescriptor, attributes);
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTIClassHierarchyDescriptor, numBaseClasses);
-		if (!is64bit) {
-			ADD_MEMBER2(EAOFFSET, &mtoff, RTTI::_RTTIClassHierarchyDescriptor, baseClassArray);
-		}
-		else {
-			ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTIClassHierarchyDescriptor, baseClassArray);
-		}
-	}
-
-	if (structPtr = addStruct(s_BaseClassDescriptor_ID, "_RTTIBaseClassDescriptor", "RTTI Base Class Descriptor (#classinformer)"))
-	{
-		if (!is64bit) {
-			ADD_MEMBER2(EAOFFSET, &mtoff, RTTI::_RTTIBaseClassDescriptor, typeDescriptor);
-		}
-		else {
-			ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTIBaseClassDescriptor, typeDescriptor);
-		}
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTIBaseClassDescriptor, numContainedBases);
-		opinfo_t mt;
-		ZeroMemory(&mt, sizeof(refinfo_t));
-		mt.tid = s_PMD_ID;
-		ADD_MEMBER2(stru_flag(), &mt, RTTI::_RTTIBaseClassDescriptor, pmd);
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTIBaseClassDescriptor, attributes);
-	}
-
-	if (structPtr = addStruct(s_CompleteObjectLocator_ID, "_RTTICompleteObjectLocator", "RTTI Complete Object Locator (#classinformer)"))
-	{
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTICompleteObjectLocator, signature);
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTICompleteObjectLocator, offset);
-		ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTICompleteObjectLocator, cdOffset);
-		if (!is64bit) {
-			ADD_MEMBER2(EAOFFSET, &mtoff, RTTI::_RTTICompleteObjectLocator, typeDescriptor);
-			ADD_MEMBER2(EAOFFSET, &mtoff, RTTI::_RTTICompleteObjectLocator, classDescriptor);
-		}
-		else {
-			ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTICompleteObjectLocator, typeDescriptor);
-			ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTICompleteObjectLocator, classDescriptor);
-			ADD_MEMBER2(dword_flag(), NULL, RTTI::_RTTICompleteObjectLocator, objectBase);
-		}
-	}
-
-#undef ADD_MEMBER2
+	udt_type_data_t colUdt;
+	colUdt.push_back(createStrucMember("signature", RTTI::_RTTICompleteObjectLocator::offsetof_signature(), 4));
+	colUdt.push_back(createStrucMember("offset", RTTI::_RTTICompleteObjectLocator::offsetof_offset(), 4));
+	colUdt.push_back(createStrucMember("cdOffset", RTTI::_RTTICompleteObjectLocator::offsetof_cdOffset(), 4));
+	colUdt.push_back(createStrucMember("typeDescriptor", RTTI::_RTTICompleteObjectLocator::offsetof_typeDescriptor(), getPtrSize()));
+	colUdt.push_back(createStrucMember("classDescriptor", RTTI::_RTTICompleteObjectLocator::offsetof_classDescriptor(), getPtrSize()));
+	if (is64bit)
+		colUdt.push_back(createStrucMember("objectBase", RTTI::_RTTICompleteObjectLocator::offsetof_objectBase(), 4));
+	addStruct(s_CompleteObjectLocator_ID, colUdt, "_RTTICompleteObjectLocator", "RTTI Complete Object Locator (#classinformer)");
 }
 
 // Version 1.05, manually set fields and then try to place the struct
@@ -275,7 +222,7 @@ static BOOL tryStructRTTI(ea_t ea, tid_t tid, __in_opt LPSTR typeName = NULL, BO
 		else {
 			create_qword(ea, getPtrSize());
 		}
-	};
+		};
 
 	if (tid == s_type_info_ID)
 	{
@@ -503,9 +450,9 @@ BOOL RTTI::type_info::isValid(ea_t typeInfo)
 			{
 				if (_M_data == 0)
 					return(isTypeName(typeInfo + type_info::offsetof__M_d_name()));
-				
+
 			}
-			
+
 		}
 	}
 
@@ -641,13 +588,13 @@ BOOL RTTI::_RTTICompleteObjectLocator::isValid2(ea_t col)
 			ea_t classDescriptor = getEa(col + _RTTICompleteObjectLocator::offsetof_classDescriptor());
 			if (classDescriptor && (classDescriptor != BADADDR))
 				return(RTTI::_RTTIClassHierarchyDescriptor::isValid(classDescriptor));
-			
+
 			return(FALSE);
 		}
-		
+
 		return(FALSE);
 	}
-	
+
 	return(FALSE);
 }
 
@@ -738,12 +685,12 @@ BOOL RTTI::_RTTIBaseClassDescriptor::isValid(ea_t bcd, ea_t colBase64)
 					return(RTTI::type_info::isValid(typeInfo));
 				}
 			}
-			
+
 		}
-		
+
 	}
 
-	
+
 	return(FALSE);
 }
 
@@ -937,24 +884,24 @@ BOOL RTTI::_RTTIClassHierarchyDescriptor::isValid(ea_t chd, ea_t colBase64)
 											return(RTTI::_RTTIBaseClassDescriptor::isValid(baseClassDescriptor, colBase64));
 										}
 									}
-									
+
 								}
-								
+
 							}
-							
+
 						}
-						
+
 					}
-					
+
 				}
-				
+
 			}
-			
+
 		}
-		
+
 	}
 
-	
+
 	return(FALSE);
 }
 
