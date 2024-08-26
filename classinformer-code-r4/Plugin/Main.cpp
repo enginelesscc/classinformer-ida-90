@@ -386,9 +386,9 @@ bool idaapi run(size_t arg)
 		// Ask if we should use storage or process again
 		if (storageExists)
 		{
-			// Version 2.3 didn't change the format
+			// Version 9.3 didn't change the format
 			UINT major = HIBYTE(storageVersion), minor = LOBYTE(storageVersion);
-			if ((major != 2) || (minor < 2))
+			if ((major != 9) || (minor < 2))
 			{
 				msg("* Storage version mismatch, must rescan *\n");
 				storageExists = 0;
@@ -407,7 +407,7 @@ bool idaapi run(size_t arg)
 			if (cmp != COMP_MS)
 			{
 				msg("** IDA reports target compiler: \"%s\"\n", get_compiler_name(cmp));
-				int iResult = ask_buttons(NULL, NULL, NULL, 0, "TITLE Class Informer\nHIDECANCEL\nIDA reports this IDB's compiler as: \"%s\" \n\nThis plug-in only understands MS Visual C++ targets.\nRunning it on other targets (like Borland© compiled, etc.) will have unpredicted results.   \n\nDo you want to continue anyhow?", get_compiler_name(cmp));
+				int iResult = ask_buttons(NULL, NULL, NULL, 0, "TITLE Class Informer\nHIDECANCEL\nIDA reports this IDB's compiler as: \"%s\" \n\nThis plug-in only understands MS Visual C++ targets.\nRunning it on other targets (like BorlandÂ© compiled, etc.) will have unpredicted results.   \n\nDo you want to continue anyhow?", get_compiler_name(cmp));
 				if (iResult != 1)
 				{
 					msg("- Aborted -\n\n");
