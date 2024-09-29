@@ -209,7 +209,7 @@ ea_t find_binary2(ea_t start_ea, ea_t end_ea, LPCSTR pattern, LPCSTR file, int l
 	compiled_binpat_vec_t searchVec;	
 	qstring errorStr;
 	if (parse_binpat_str(&searchVec, start_ea, pattern, 16, PBSENC_DEF1BPU, &errorStr))	
-		return bin_search2(start_ea, end_ea, searchVec, (BIN_SEARCH_FORWARD | BIN_SEARCH_NOBREAK | BIN_SEARCH_NOSHOW));	
+		return bin_search(start_ea, end_ea, searchVec, (BIN_SEARCH_FORWARD | BIN_SEARCH_NOBREAK | BIN_SEARCH_NOSHOW));	
 	else
 		msg("** parse_binpat_str() failed! Reason: \"%s\" @ %s, line #%d **", errorStr.c_str(), __FILE__, __LINE__);
 	return BADADDR;
