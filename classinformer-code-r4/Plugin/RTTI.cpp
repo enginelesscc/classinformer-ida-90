@@ -181,6 +181,8 @@ void RTTI::addDefinitionsToIda()
 	pmdUdt.push_back(createStrucMember("pdisp", RTTI::PMD::offsetof_pdisp(), 4));
 	pmdUdt.push_back(createStrucMember("vdisp", RTTI::PMD::offsetof_vdisp(), 4));
 	auto pmdPtr = addStruct(s_PMD_ID, pmdUdt, "_PMD", "RTTI Base class descriptor displacement container (#classinformer)");
+	if (!pmdPtr)
+		return;
 
 	udt_type_data_t rchdUdt;
 	rchdUdt.push_back(createStrucMember("signature", RTTI::_RTTIClassHierarchyDescriptor::offsetof_signature(), 4));
@@ -188,6 +190,8 @@ void RTTI::addDefinitionsToIda()
 	rchdUdt.push_back(createStrucMember("numBaseClasses", RTTI::_RTTIClassHierarchyDescriptor::offsetof_numBaseClasses(), 4));
 	rchdUdt.push_back(createStrucMember("baseClassArray", RTTI::_RTTIClassHierarchyDescriptor::offsetof_baseClassArray(), getPtrSize()));
 	auto rchdPtr = addStruct(s_ClassHierarchyDescriptor_ID, rchdUdt, "_RTTIClassHierarchyDescriptor", "RTTI Class Hierarchy Descriptor (#classinformer)");
+	if (!rchdPtr)
+		return;
 
 	udt_type_data_t bcdUdt;
 	bcdUdt.push_back(createStrucMember("typeDescriptor", RTTI::_RTTIBaseClassDescriptor::offsetof_typeDescriptor(), getPtrSize()));

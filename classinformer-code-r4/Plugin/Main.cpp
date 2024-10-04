@@ -93,15 +93,7 @@ plugmod_t* idaapi init()
 	// Want the table entry structure to fit the max netnode size
 	CASSERT(sizeof(TBLENTRY) == 1024);
 
-	::is64bit = inf_is_64bit();
-	auto procname = inf_get_procname();
-	if (strcmp(procname.c_str(), "metapc") == 0) // (ph.id == PLFM_386)
-	{
-		GetModuleHandleEx((GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS), (LPCTSTR)&init, &myModuleHandle);
-		return PLUGIN_KEEP;
-	}
-
-	return PLUGIN_SKIP;
+	return PLUGIN_KEEP;
 }
 
 // Uninitialize
@@ -324,6 +316,16 @@ bool idaapi run(size_t arg)
 {
 	try
 	{
+		::is64bit = inf_is_64bit();
+		auto procname = inf_get_procname();
+		if (strcmp(procname.c_str(), "metapc") != 0)
+		{
+			GetModuleHandleEx((GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS), (LPCTSTR)&init, &myModuleHandle);
+			msg("\n>> Class Informer: Invalid procname.\n");
+			return false;
+		}
+
+
 		char version[16];
 		sprintf_s(version, sizeof(version), "%u.%u", HIBYTE(MY_VERSION), LOBYTE(MY_VERSION));
 		if (!is64bit)
@@ -388,7 +390,7 @@ bool idaapi run(size_t arg)
 		{
 			// Version 9.3 didn't change the format
 			UINT major = HIBYTE(storageVersion), minor = LOBYTE(storageVersion);
-			if ((major != 9) || (minor < 2))
+			if ((major != 9) || (minor < 3))
 			{
 				msg("* Storage version mismatch, must rescan *\n");
 				storageExists = 0;
@@ -407,7 +409,7 @@ bool idaapi run(size_t arg)
 			if (cmp != COMP_MS)
 			{
 				msg("** IDA reports target compiler: \"%s\"\n", get_compiler_name(cmp));
-				int iResult = ask_buttons(NULL, NULL, NULL, 0, "TITLE Class Informer\nHIDECANCEL\nIDA reports this IDB's compiler as: \"%s\" \n\nThis plug-in only understands MS Visual C++ targets.\nRunning it on other targets (like Borland© compiled, etc.) will have unpredicted results.   \n\nDo you want to continue anyhow?", get_compiler_name(cmp));
+				int iResult = ask_buttons(NULL, NULL, NULL, 0, "TITLE Class Informer\nHIDECANCEL\nIDA reports this IDB's compiler as: \"%s\" \n\nThis plug-in only understands MS Visual C++ targets.\nRunning it on other targets (like Borland compiled, etc.) will have unpredicted results.   \n\nDo you want to continue anyhow?", get_compiler_name(cmp));
 				if (iResult != 1)
 				{
 					msg("- Aborted -\n\n");
@@ -1009,7 +1011,8 @@ static BOOL processStaticTables()
 					msg("  " EAFORMAT " Register _initterm(), pattern #%d.\n", match, i);
 					ea_t start = getEa(match + pat[i].start);
 					ea_t end = getEa(match + pat[i].end);
-					processRegisterInitterm(start, end, (match + pat[i].call));
+					if (is_mapped(start) && is_mapped(end))
+						processRegisterInitterm(start, end, (match + pat[i].call));
 					match = FIND_BINARY(match + 30, cinitFunc->end_ea, pat[i].pattern);
 				};
 			}
@@ -1208,8 +1211,8 @@ void setUnknown(ea_t ea, int size)
 		{
 			do_unknown(ea, DOUNK_SIMPLE);
 			ea += (ea_t)isize, size -= isize;
-		}
-	};
+}
+};
 #endif
 }
 
