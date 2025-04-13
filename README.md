@@ -1,3 +1,10 @@
+# Obsolete :)
+
+Get the updated version from the creator:
+
+https://github.com/kweatherman/IDA_ClassInformer_PlugIn
+
+
 Original: https://sourceforge.net/projects/classinformer/
 
 Tested on: IDA Pro 8.2, 8.3, 8.4, 9.0 beta2&3, 9.0 
